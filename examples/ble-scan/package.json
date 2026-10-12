@@ -1,0 +1,8 @@
+{
+  "name": "example-ble-scan",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

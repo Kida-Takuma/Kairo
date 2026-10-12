@@ -1,0 +1,8 @@
+{
+  "name": "example-gps-tracker",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "example-blink",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

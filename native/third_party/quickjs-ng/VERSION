@@ -1,0 +1,2 @@
+quickjs-ng 9b06171 (https://github.com/quickjs-ng/quickjs)
+Vendored files: quickjs.c libregexp.c libunicode.c dtoa.c and the headers they include. MIT License, see LICENSE.

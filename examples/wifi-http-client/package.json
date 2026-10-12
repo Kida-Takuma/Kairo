@@ -1,0 +1,8 @@
+{
+  "name": "example-wifi-http-client",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

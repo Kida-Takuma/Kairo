@@ -1,0 +1,8 @@
+{
+  "name": "example-ultrasonic-distance",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

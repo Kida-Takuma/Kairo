@@ -1,0 +1,7 @@
+node_modules/
+native/build/
+native/third_party/
+.kairo/
+pnpm-lock.yaml
+*.c
+*.h

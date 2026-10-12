@@ -1,0 +1,8 @@
+{
+  "name": "example-i2c-temperature",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "kairo": "link:../.."
+  }
+}

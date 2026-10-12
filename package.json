@@ -1,0 +1,89 @@
+{
+  "name": "kairo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Write microcontroller firmware in TypeScript, with your usual node_modules",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kida-Takuma/Kairo.git"
+  },
+  "homepage": "https://github.com/Kida-Takuma/Kairo#readme",
+  "bugs": {
+    "url": "https://github.com/Kida-Takuma/Kairo/issues"
+  },
+  "type": "module",
+  "bin": {
+    "kairo": "./bin/kairo.mjs"
+  },
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./shims/*": {
+      "types": "./shims/*.ts",
+      "default": "./shims/*.ts"
+    },
+    "./package.json": "./package.json",
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "files": [
+    "bin",
+    "lib",
+    "src",
+    "shims",
+    "native/include",
+    "native/src",
+    "native/hal",
+    "native/boards",
+    "native/Makefile",
+    "native/third_party",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "native": "node bin/kairo.mjs native",
+    "check": "node bin/kairo.mjs check . && node bin/kairo.mjs check examples/ble-scan && node bin/kairo.mjs check examples/blink && node bin/kairo.mjs check examples/button-servo && node bin/kairo.mjs check examples/express-api && node bin/kairo.mjs check examples/gps-tracker && node bin/kairo.mjs check examples/http-server-hono && node bin/kairo.mjs check examples/i2c-temperature && node bin/kairo.mjs check examples/native-sensors && node bin/kairo.mjs check examples/ultrasonic-distance && node bin/kairo.mjs check examples/wifi-http-client",
+    "test": "node test/smoke.mjs",
+    "example:ble-scan": "node bin/kairo.mjs run examples/ble-scan/main.ts",
+    "example:blink": "node bin/kairo.mjs run examples/blink/main.ts",
+    "example:button-servo": "node bin/kairo.mjs run examples/button-servo/main.ts",
+    "example:express-api": "node bin/kairo.mjs run examples/express-api/main.ts",
+    "example:gps-tracker": "node bin/kairo.mjs run examples/gps-tracker/main.ts",
+    "example:http-server-hono": "node bin/kairo.mjs run examples/http-server-hono/main.ts",
+    "example:i2c-temperature": "node bin/kairo.mjs run examples/i2c-temperature/main.ts",
+    "example:native-sensors": "node bin/kairo.mjs run examples/native-sensors/main.ts",
+    "example:ultrasonic-distance": "node bin/kairo.mjs run examples/ultrasonic-distance/main.ts",
+    "example:wifi-http-client": "node bin/kairo.mjs run examples/wifi-http-client/main.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@types/path-browserify": "^1.0.3",
+    "buffer": "^6.0.3",
+    "esbuild": "^0.25.0",
+    "path-browserify": "^1.0.1",
+    "serialport": "^13.0.0",
+    "typescript": "^5.6.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  },
+  "keywords": [
+    "microcontroller",
+    "esp32",
+    "rp2040",
+    "typescript",
+    "quickjs",
+    "iot",
+    "firmware"
+  ]
+}

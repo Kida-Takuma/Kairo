@@ -1,0 +1,6 @@
+packages:
+  - examples/*
+
+allowBuilds:
+  esbuild: true
+  "@serialport/bindings-cpp": true
