@@ -1,7 +1,7 @@
 import "./globals";
 import { concat, toBytes } from "./bytes";
 import { TcpServer, TcpSocket } from "./net";
-import { httpDate, parseChunked, parseHead } from "./http_common";
+import { contentLength, httpDate, parseChunked, parseHead } from "./http_common";
 import { KairoRequest, KairoResponse, STATUS_TEXT } from "./web";
 
 export type Handler = (request: KairoRequest, info: { remoteAddr: string; remotePort: number }) => KairoResponse | Promise<KairoResponse>;
@@ -11,6 +11,7 @@ export interface ServeOptions {
   hostname?: string;
   idleTimeoutMs?: number;
   maxBodyBytes?: number;
+  maxHeaderBytes?: number;
   fetch?: Handler;
   onListen?: (info: { port: number; hostname: string }) => void;
   onError?: (err: unknown) => KairoResponse | Promise<KairoResponse>;
@@ -48,6 +49,7 @@ export function serve(options: ServeOptions | Handler, handler?: Handler): HttpS
   const port = opts.port ?? 80;
   const idle = opts.idleTimeoutMs ?? 15000;
   const maxBody = opts.maxBodyBytes ?? 256 * 1024;
+  const maxHeader = opts.maxHeaderBytes ?? 16 * 1024;
   const server = new TcpServer();
 
   server.on("connection", (socket: TcpSocket) => {
@@ -63,11 +65,15 @@ export function serve(options: ServeOptions | Handler, handler?: Handler): HttpS
       if (idleTimer !== undefined) clearTimeout(idleTimer);
     });
     socket.on("error", () => {});
+    function reject(status: number, message: string): void {
+      if (!socket.closed) socket.write(encodeResponse(new KairoResponse(message, { status }), false));
+      socket.end();
+    }
+
     socket.on("data", (chunk: Uint8Array) => {
       buf = buf.length ? concat([buf, chunk]) : chunk;
-      if (buf.length > maxBody + 65536) {
-        socket.write(encodeResponse(new KairoResponse("payload too large", { status: 413 }), false));
-        socket.end();
+      if (buf.length > maxBody + maxHeader) {
+        reject(413, "payload too large");
         return;
       }
       armIdle();
@@ -79,44 +85,56 @@ export function serve(options: ServeOptions | Handler, handler?: Handler): HttpS
       busy = true;
       try {
         for (;;) {
-          const head = parseHead(buf);
-          if (!head) break;
-          const m = /^([A-Z]+) (\S+) HTTP\/1\.([01])$/.exec(head.startLine);
-          if (!m) {
-            socket.write(encodeResponse(new KairoResponse("bad request", { status: 400 }), false));
-            socket.end();
-            return;
+          let head: ReturnType<typeof parseHead>;
+          try {
+            head = parseHead(buf);
+          } catch {
+            return reject(400, "bad request");
           }
+          if (!head) {
+            if (buf.length > maxHeader) return reject(431, "request header fields too large");
+            break;
+          }
+          if (head.bodyStart > maxHeader) return reject(431, "request header fields too large");
+          const m = /^([A-Z]+) (\S+) HTTP\/1\.([01])$/.exec(head.startLine);
+          if (!m) return reject(400, "bad request");
           const [, method, target, minor] = m;
           let body: Uint8Array | null = null;
           let consumed = head.bodyStart;
           const te = head.headers.get("transfer-encoding");
-          const cl = head.headers.get("content-length");
+          const cl = contentLength(head.headers);
           if (te && te.toLowerCase().includes("chunked")) {
-            const st = parseChunked(buf.subarray(head.bodyStart));
+            let st: ReturnType<typeof parseChunked>;
+            try {
+              st = parseChunked(buf.subarray(head.bodyStart));
+            } catch {
+              return reject(400, "bad request");
+            }
             if (!st.done) break;
             body = concat(st.data);
             consumed += st.consumed;
           } else if (cl !== null) {
-            const n = Number(cl);
-            if (n > maxBody) {
-              socket.write(encodeResponse(new KairoResponse("payload too large", { status: 413 }), false));
-              socket.end();
-              return;
-            }
-            if (buf.length < head.bodyStart + n) break;
-            body = buf.subarray(head.bodyStart, head.bodyStart + n);
-            consumed += n;
+            if (Number.isNaN(cl)) return reject(400, "bad request");
+            if (cl > maxBody) return reject(413, "payload too large");
+            if (buf.length < head.bodyStart + cl) break;
+            body = buf.subarray(head.bodyStart, head.bodyStart + cl);
+            consumed += cl;
           }
           buf = buf.subarray(consumed);
           const connHdr = (head.headers.get("connection") ?? "").toLowerCase();
           const keepAlive = connHdr.includes("close") ? false : minor === "1" || connHdr.includes("keep-alive");
-          const host = head.headers.get("host") ?? `${opts.hostname ?? "localhost"}:${port}`;
-          const req = new KairoRequest(`http://${host}${target!.startsWith("/") ? target : "/" + target}`, {
-            method,
-            headers: head.headers,
-            body: method === "GET" || method === "HEAD" ? null : body,
-          });
+          const hostHeader = head.headers.get("host") ?? "";
+          const host = /^[A-Za-z0-9.\-[\]:]+$/.test(hostHeader) ? hostHeader : `${opts.hostname ?? "localhost"}:${port}`;
+          let req: KairoRequest;
+          try {
+            req = new KairoRequest(`http://${host}${target!.startsWith("/") ? target : "/" + target}`, {
+              method,
+              headers: head.headers,
+              body: method === "GET" || method === "HEAD" ? null : body,
+            });
+          } catch {
+            return reject(400, "bad request");
+          }
           req.remoteAddr = socket.remoteAddr;
           let res: KairoResponse;
           try {

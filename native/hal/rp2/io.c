@@ -224,14 +224,23 @@ static int kv_save(void)
     return 0;
 }
 
+static size_t kv_record(size_t off, uint8_t *klen, uint16_t *vlen)
+{
+    if (off + 3 > KV_FLASH_BYTES) return 0;
+    *klen = s_kv[off];
+    memcpy(vlen, s_kv + off + 1, 2);
+    size_t rec = 3 + *klen + *vlen;
+    if (*klen == 0 || off + rec > KV_FLASH_BYTES) return 0;
+    return rec;
+}
+
 static size_t kv_find(const char *key, size_t *rec_len)
 {
     size_t off = 4;
-    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff) {
-        uint8_t klen = s_kv[off];
-        uint16_t vlen;
-        memcpy(&vlen, s_kv + off + 1, 2);
-        size_t rec = 3 + klen + vlen;
+    uint8_t klen;
+    uint16_t vlen;
+    size_t rec;
+    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff && (rec = kv_record(off, &klen, &vlen)) != 0) {
         if (klen == strlen(key) && memcmp(s_kv + off + 3, key, klen) == 0) {
             *rec_len = rec;
             return off;
@@ -248,9 +257,9 @@ int hal_kv_get(const char *key, uint8_t *buf, size_t max)
     size_t rec;
     size_t off = kv_find(key, &rec);
     if (!rec) return HAL_ECLOSED;
-    uint8_t klen = s_kv[off];
+    uint8_t klen;
     uint16_t vlen;
-    memcpy(&vlen, s_kv + off + 1, 2);
+    kv_record(off, &klen, &vlen);
     size_t n = vlen < max ? vlen : max;
     memcpy(buf, s_kv + off + 3 + klen, n);
     return (int)n;
@@ -259,11 +268,10 @@ int hal_kv_get(const char *key, uint8_t *buf, size_t max)
 static size_t kv_end(void)
 {
     size_t off = 4;
-    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff) {
-        uint16_t vlen;
-        memcpy(&vlen, s_kv + off + 1, 2);
-        off += 3 + s_kv[off] + vlen;
-    }
+    uint8_t klen;
+    uint16_t vlen;
+    size_t rec;
+    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff && (rec = kv_record(off, &klen, &vlen)) != 0) off += rec;
     return off;
 }
 
@@ -306,15 +314,15 @@ int hal_kv_keys(char *buf, size_t max)
 {
     kv_load();
     size_t off = 4, out = 0;
-    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff) {
-        uint8_t klen = s_kv[off];
-        uint16_t vlen;
-        memcpy(&vlen, s_kv + off + 1, 2);
+    uint8_t klen;
+    uint16_t vlen;
+    size_t rec;
+    while (off < KV_FLASH_BYTES && s_kv[off] != 0 && s_kv[off] != 0xff && (rec = kv_record(off, &klen, &vlen)) != 0) {
         if (out + klen + 2 > max) break;
         memcpy(buf + out, s_kv + off + 3, klen);
         out += klen;
         buf[out++] = 0;
-        off += 3 + klen + vlen;
+        off += rec;
     }
     buf[out] = 0;
     return (int)out;

@@ -201,12 +201,18 @@ int rt_get_bytes(JSContext *ctx, JSValueConst v, const uint8_t **data, size_t *l
         *hold = JS_DupValue(ctx, v);
         return 1;
     }
-    size_t off, blen, elem;
-    JSValue ab = JS_GetTypedArrayBuffer(ctx, v, &off, &blen, &elem);
+    size_t off, view_len, elem;
+    JSValue ab = JS_GetTypedArrayBuffer(ctx, v, &off, &view_len, &elem);
     if (!JS_IsException(ab)) {
-        uint8_t *p = JS_GetArrayBuffer(ctx, &blen, ab);
+        size_t ab_len;
+        uint8_t *p = JS_GetArrayBuffer(ctx, &ab_len, ab);
+        if (!p || off > ab_len || view_len > ab_len - off) {
+            JS_FreeValue(ctx, ab);
+            JS_ThrowRangeError(ctx, "typed array is detached or out of bounds");
+            return -1;
+        }
         *data = p + off;
-        *len = blen;
+        *len = view_len;
         *hold = ab;
         return 0;
     }

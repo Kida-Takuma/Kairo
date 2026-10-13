@@ -41,14 +41,22 @@ export const clock = {
       }, timeout);
       const packet = new Uint8Array(48);
       packet[0] = 0x1b;
+      const nonce = sys.random_bytes(8);
+      packet.set(nonce, 40);
       const t1 = sys.time_us();
-      sock.on("message", (data: Uint8Array) => {
-        if (data.length < 48) return;
+      sock.on("message", (data: Uint8Array, from: { addr: string; port: number }) => {
+        if (data.length < 48 || from.port !== port) return;
+        if ((data[0]! & 0x07) !== 4) return;
+        for (let i = 0; i < 8; i++) if (data[24 + i] !== nonce[i]) return;
         clearTimeout(timer);
         sock.close();
         const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
         const secs = view.getUint32(40);
         const frac = view.getUint32(44);
+        if (secs === 0) {
+          reject(new Error("ntp: server not synchronized"));
+          return;
+        }
         const serverMs = secs * 1000 + Math.round((frac / 4294967296) * 1000) - NTP_EPOCH_OFFSET_MS;
         const rtt = (sys.time_us() - t1) / 1000;
         const now = serverMs + rtt / 2;

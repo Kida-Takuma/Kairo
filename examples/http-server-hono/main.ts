@@ -6,6 +6,7 @@ import { serve } from "kairo/http";
 import { storage } from "kairo/storage";
 
 const SECRET = storage.get("api.secret") ?? "change-me";
+if (SECRET === "change-me") console.warn('api.secret is not set; store one with storage.set("api.secret", ...) before exposing this server');
 const led = gpio.output(25);
 const app = new Hono();
 

@@ -7,6 +7,7 @@ export const POLL_IN = 1;
 export const POLL_OUT = 2;
 export const POLL_ERR = 4;
 export const POLL_HUP = 8;
+const MAX_QUEUED_BYTES = 64 * 1024;
 
 export interface ConnectOptions {
   tls?: boolean;
@@ -116,6 +117,10 @@ export class TcpSocket extends EventEmitter {
     if (this._closed || this.ending) return false;
     const bytes = toBytes(data);
     if (!bytes.length) return true;
+    if (this.queued + bytes.length > MAX_QUEUED_BYTES) {
+      this.destroy(new Error(`socket write queue exceeded ${MAX_QUEUED_BYTES} bytes`));
+      return false;
+    }
     this.queue.push(bytes);
     this.queued += bytes.length;
     this.flush();

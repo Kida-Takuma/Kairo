@@ -352,6 +352,17 @@ export class KairoURL {
   }
 }
 
+const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const HEADER_VALUE_BAD = /[\r\n\0]/;
+
+function checkHeader(name: string, value: string): [string, string] {
+  const n = String(name);
+  const v = String(value).trim();
+  if (!HEADER_NAME.test(n)) throw new TypeError(`Invalid header name: ${JSON.stringify(n)}`);
+  if (HEADER_VALUE_BAD.test(v)) throw new TypeError(`Invalid header value for ${n}`);
+  return [n.toLowerCase(), v];
+}
+
 export class KairoHeaders {
   private map = new Map<string, string[]>();
 
@@ -366,13 +377,14 @@ export class KairoHeaders {
     return String(k).toLowerCase();
   }
   append(k: string, v: string): void {
-    const n = KairoHeaders.norm(k);
+    const [n, value] = checkHeader(k, v);
     const list = this.map.get(n);
-    if (list) list.push(String(v).trim());
-    else this.map.set(n, [String(v).trim()]);
+    if (list) list.push(value);
+    else this.map.set(n, [value]);
   }
   set(k: string, v: string): void {
-    this.map.set(KairoHeaders.norm(k), [String(v).trim()]);
+    const [n, value] = checkHeader(k, v);
+    this.map.set(n, [value]);
   }
   get(k: string): string | null {
     const list = this.map.get(KairoHeaders.norm(k));
@@ -526,6 +538,7 @@ export const STATUS_TEXT: Record<number, string> = {
   415: "Unsupported Media Type",
   422: "Unprocessable Entity",
   429: "Too Many Requests",
+  431: "Request Header Fields Too Large",
   500: "Internal Server Error",
   501: "Not Implemented",
   502: "Bad Gateway",

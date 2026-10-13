@@ -58,6 +58,13 @@ export function parseChunked(buf: Uint8Array): ChunkedState {
   }
 }
 
+export function contentLength(headers: KairoHeaders): number | null {
+  const raw = headers.get("content-length");
+  if (raw === null) return null;
+  if (!/^\d{1,15}$/.test(raw)) return NaN;
+  return Number(raw);
+}
+
 export function httpDate(d = new Date()): string {
   return d.toUTCString();
 }

@@ -119,7 +119,8 @@ g.clearImmediate = clear;
 class KairoTextEncoder {
   readonly encoding = "utf-8";
   encode(s = ""): Uint8Array {
-    const out: number[] = [];
+    const out = new Uint8Array(s.length * 3);
+    let n = 0;
     for (let i = 0; i < s.length; i++) {
       let c = s.charCodeAt(i);
       if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length) {
@@ -129,12 +130,22 @@ class KairoTextEncoder {
           i++;
         }
       }
-      if (c < 0x80) out.push(c);
-      else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
-      else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
-      else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      if (c < 0x80) out[n++] = c;
+      else if (c < 0x800) {
+        out[n++] = 0xc0 | (c >> 6);
+        out[n++] = 0x80 | (c & 63);
+      } else if (c < 0x10000) {
+        out[n++] = 0xe0 | (c >> 12);
+        out[n++] = 0x80 | ((c >> 6) & 63);
+        out[n++] = 0x80 | (c & 63);
+      } else {
+        out[n++] = 0xf0 | (c >> 18);
+        out[n++] = 0x80 | ((c >> 12) & 63);
+        out[n++] = 0x80 | ((c >> 6) & 63);
+        out[n++] = 0x80 | (c & 63);
+      }
     }
-    return new Uint8Array(out);
+    return out.subarray(0, n);
   }
   encodeInto(s: string, dest: Uint8Array): { read: number; written: number } {
     const b = this.encode(s);

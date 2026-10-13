@@ -1,7 +1,7 @@
 import "./globals";
 import { concat, toBytes } from "./bytes";
 import { TcpSocket } from "./net";
-import { parseChunked, parseHead } from "./http_common";
+import { contentLength, parseChunked, parseHead } from "./http_common";
 import { KairoHeaders, KairoRequest, KairoResponse, KairoURL, type RequestInitLike } from "./web";
 
 const g = globalThis as Record<string, unknown>;
@@ -64,10 +64,10 @@ async function once(req: KairoRequest, timeoutMs: number): Promise<KairoResponse
         if (st.done) finish(concat(st.data));
         return;
       }
-      const cl = head.headers.get("content-length");
+      const cl = contentLength(head.headers);
       if (cl !== null) {
-        const n = Number(cl);
-        if (body.length >= n) finish(body.subarray(0, n));
+        if (Number.isNaN(cl)) return fail(new Error("fetch: invalid content-length"));
+        if (body.length >= cl) finish(body.subarray(0, cl));
       }
     }
 
@@ -117,11 +117,15 @@ export async function fetch(input: string | KairoURL | KairoRequest, init: Fetch
       if (loc && req.redirect === "error" && [301, 302, 303, 307, 308].includes(res.status)) throw new TypeError("fetch: redirect not allowed");
       return res;
     }
-    const next = new KairoURL(loc, req.url).href;
+    const next = new KairoURL(loc, req.url);
     const keepMethod = res.status === 307 || res.status === 308;
-    req = new KairoRequest(next, {
+    const headers = new KairoHeaders(req.headers);
+    if (next.origin !== new KairoURL(req.url).origin) {
+      for (const h of ["authorization", "cookie", "proxy-authorization", "host"]) headers.delete(h);
+    }
+    req = new KairoRequest(next.href, {
       method: keepMethod ? req.method : "GET",
-      headers: req.headers,
+      headers,
       body: keepMethod ? req.body : null,
       signal: req.signal,
       redirect: req.redirect,
